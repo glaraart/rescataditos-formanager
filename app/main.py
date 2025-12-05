@@ -339,9 +339,10 @@ def generar_html_email(solicitud_id: str, datos: Dict[str, Any]) -> str:
 @app.post("/webhook/form")
 async def handle_form_submission(request: Request):
     """Recibe los datos del formulario desde Apps Script"""
-    data = await request.json()
-    timestamp = data.get("timestamp")
-    datos_formulario = data.get("datos", {})
+    datos_formulario = await request.json()
+    
+    # El timestamp viene dentro de los datos del formulario
+    timestamp = datos_formulario.get("Timestamp", datetime.now().isoformat())
     
     # Generar ID único
     solicitud_id = generar_id()
