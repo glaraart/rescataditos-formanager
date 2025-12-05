@@ -1,11 +1,10 @@
 """
 Sistema de Gestión de Adopciones - Cloud Run
-FastAPI + Supabase + Gmail SMTP
+FastAPI + PostgreSQL (Supabase) + Gmail SMTP
 """
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
-from supabase import create_client, Client
 from datetime import datetime
 import os
 import uuid
@@ -13,28 +12,36 @@ from typing import Dict, Any
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import psycopg2
+from psycopg2.extras import RealDictCursor
+import json
 
 app = FastAPI()
 
-# Configuración desde variables de entorno
-SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
-GMAIL_USER = os.getenv("GMAIL_USER", "")  # Tu email completo: ejemplo@gmail.com
-GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")  # Contraseña de aplicación de 16 caracteres
-EMAIL_DESTINO = os.getenv("EMAIL_DESTINO", "")
-CLOUD_RUN_URL = os.getenv("CLOUD_RUN_URL", "")  # Tu propia URL para los botones
+# Configuración de base de datos
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT", "5432")
+DB_NAME = os.getenv("DB_NAME", "postgres")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
 
-# Inicializar clientes
-try:
-    if SUPABASE_URL and SUPABASE_KEY:
-        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        print("✅ Supabase client initialized")
-    else:
-        supabase = None
-        print("⚠️ WARNING: Supabase credentials not configured")
-except Exception as e:
-    supabase = None
-    print(f"⚠️ Error initializing Supabase: {e}")
+# Configuración de email
+GMAIL_USER = os.getenv("GMAIL_USER")
+GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
+EMAIL_DESTINO = os.getenv("EMAIL_DESTINO")
+CLOUD_RUN_URL = os.getenv("CLOUD_RUN_URL")
+
+
+def get_db_connection():
+    """Crear conexión a PostgreSQL"""
+    return psycopg2.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        dbname=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        cursor_factory=RealDictCursor
+    )
 
 # Estados
 ESTADOS = {
@@ -332,54 +339,67 @@ def generar_html_email(solicitud_id: str, datos: Dict[str, Any]) -> str:
 @app.post("/webhook/form")
 async def handle_form_submission(request: Request):
     """Recibe los datos del formulario desde Apps Script"""
-    try:
-        if not supabase:
-            return {"success": False, "error": "Database not configured"}
-        
-        data = await request.json()
-        timestamp = data.get("timestamp")
-        datos_formulario = data.get("datos", {})
-        
-        # Generar ID único
-        solicitud_id = generar_id()
-        
-        # Extraer campos para la base de datos
-        campos_db = extraer_campos_db(datos_formulario)
-        
-        # Preparar registro para Supabase
-        registro = {
-            "id": solicitud_id,
-            "fecha_solicitud": timestamp,
-            "estado": ESTADOS["PENDIENTE"],
-            **campos_db,
-            "datos_completos": datos_formulario,  # Guardar JSON completo
-            "fecha_creacion": datetime.now().isoformat(),
-            "fecha_actualizacion": datetime.now().isoformat(),
-            "fecha_aceptado": None,
-            "fecha_rechazado": None
-        }
-        
-        # Guardar en Supabase
-        result = supabase.table("solicitudes_adopcion").insert(registro).execute()
-        
-        # Enviar email de notificación
-        html_email = generar_html_email(solicitud_id, datos_formulario)
-        
-        enviar_email_gmail(
-            destinatario=EMAIL_DESTINO,
-            asunto=f"🐾 Nueva Solicitud - {campos_db['nombre_apellido']}",
-            html_body=html_email
+    data = await request.json()
+    timestamp = data.get("timestamp")
+    datos_formulario = data.get("datos", {})
+    
+    # Generar ID único
+    solicitud_id = generar_id()
+    
+    # Extraer campos para la base de datos
+    campos_db = extraer_campos_db(datos_formulario)
+    
+    # Guardar en PostgreSQL
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO solicitudes_adopcion (
+            id, fecha_solicitud, estado, nombre_apellido, edad, ocupacion,
+            email, instagram, celular, zona, tipo_vivienda, tenencia_vivienda,
+            cerramientos_url, nombre_peludo, datos_completos,
+            fecha_creacion, fecha_actualizacion, fecha_aceptado, fecha_rechazado
+        ) VALUES (
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
         )
-        
-        return {
-            "success": True,
-            "id": solicitud_id,
-            "message": "Solicitud procesada correctamente"
-        }
-        
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return {"success": False, "error": str(e)}
+    """, (
+        solicitud_id,
+        timestamp,
+        ESTADOS["PENDIENTE"],
+        campos_db["nombre_apellido"],
+        campos_db["edad"],
+        campos_db["ocupacion"],
+        campos_db["email"],
+        campos_db["instagram"],
+        campos_db["celular"],
+        campos_db["zona"],
+        campos_db["tipo_vivienda"],
+        campos_db["tenencia_vivienda"],
+        campos_db["cerramientos_url"],
+        campos_db["nombre_peludo"],
+        json.dumps(datos_formulario),
+        datetime.now().isoformat(),
+        datetime.now().isoformat(),
+        None,
+        None
+    ))
+    conn.commit()
+    cur.close()
+    conn.close()
+    
+    # Enviar email de notificación
+    html_email = generar_html_email(solicitud_id, datos_formulario)
+    
+    enviar_email_gmail(
+        destinatario=EMAIL_DESTINO,
+        asunto=f"🐾 Nueva Solicitud - {campos_db['nombre_apellido']}",
+        html_body=html_email
+    )
+    
+    return {
+        "success": True,
+        "id": solicitud_id,
+        "message": "Solicitud procesada correctamente"
+    }
 
 
 def generar_email_respuesta(nombre: str, accion: str, nombre_peludo: str) -> str:
@@ -505,9 +525,6 @@ def generar_email_resumen_pendientes(solicitudes: list) -> str:
 async def handle_button_action(action: str, id: str):
     """Maneja los clics en los botones del email - SOLO registra fecha"""
     
-    if not supabase:
-        return HTMLResponse("<h2>❌ Database not configured</h2>")
-    
     estados_map = {
         "aceptar": ("Aceptado", "ACEPTADA", "#34a853", "✅", "fecha_aceptado"),
         "rechazar": ("Rechazado", "RECHAZADA", "#ea4335", "❌", "fecha_rechazado")
@@ -518,19 +535,21 @@ async def handle_button_action(action: str, id: str):
     
     nuevo_estado, mensaje, color, emoji, campo_fecha = estados_map[action]
     
-    # SOLO actualizar en Supabase con timestamp del estado (SIN enviar email)
-    try:
-        now = datetime.now().isoformat()
-        update_data = {
-            "estado": nuevo_estado,
-            "fecha_actualizacion": now,
-            campo_fecha: now
-        }
-        
-        supabase.table("solicitudes_adopcion").update(update_data).eq("id", id).execute()
+    # Actualizar en PostgreSQL
+    now = datetime.now().isoformat()
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(f"""
+        UPDATE solicitudes_adopcion 
+        SET estado = %s, fecha_actualizacion = %s, {campo_fecha} = %s
+        WHERE id = %s
+    """, (nuevo_estado, now, now, id))
+    conn.commit()
+    cur.close()
+    conn.close()
         
         # Página de confirmación
-        html = f"""
+    html = f"""
         <html>
           <head>
             <style>
@@ -578,10 +597,7 @@ async def handle_button_action(action: str, id: str):
         </html>
         """
         
-        return HTMLResponse(html)
-        
-    except Exception as e:
-        return HTMLResponse(f"<h2>❌ Error al actualizar: {str(e)}</h2>")
+    return HTMLResponse(html)
 
 
 @app.post("/cron/enviar-notificaciones")
@@ -592,108 +608,99 @@ async def enviar_notificaciones():
     2. Envía emails a solicitantes rechazados (>2h)
     3. Envía resumen de pendientes al equipo
     """
-    try:
-        if not supabase:
-            return {"success": False, "error": "Database not configured"}
+    from datetime import timedelta
+    
+    ahora = datetime.now()
+    hace_24h = (ahora - timedelta(hours=24)).isoformat()
+    hace_2h = (ahora - timedelta(hours=2)).isoformat()
+    
+    enviados = {"aceptados": 0, "rechazados": 0, "pendientes": 0}
+    
+    conn = get_db_connection()
+    cur = conn.cursor()
         
-        from datetime import timedelta
-        
-        ahora = datetime.now()
-        hace_24h = (ahora - timedelta(hours=24)).isoformat()
-        hace_2h = (ahora - timedelta(hours=2)).isoformat()
-        
-        enviados = {"aceptados": 0, "rechazados": 0, "pendientes": 0}
-        
-        # 1. Buscar ACEPTADOS con >24h sin email enviado
-        aceptados = supabase.table("solicitudes_adopcion").select("*").eq(
-            "estado", "Aceptado"
-        ).is_(
-            "email_respuesta_enviado", "null"
-        ).lte(
-            "fecha_aceptado", hace_24h
-        ).execute()
-        
-        for solicitud in aceptados.data:
-            try:
-                html = generar_email_respuesta(
-                    solicitud.get('nombre_apellido', 'Solicitante'),
-                    'aceptar',
-                    solicitud.get('nombre_peludo', 'el peludo')
-                )
-                enviar_email_gmail(
-                    solicitud['email'],
-                    "✅ Solicitud Aceptada",
-                    html
-                )
-                # Marcar como enviado
-                supabase.table("solicitudes_adopcion").update({
-                    "email_respuesta_enviado": True
-                }).eq("id", solicitud['id']).execute()
-                
-                enviados["aceptados"] += 1
-            except Exception as e:
-                print(f"Error enviando email aceptado {solicitud['id']}: {e}")
-        
-        # 2. Buscar RECHAZADOS con >2h sin email enviado
-        rechazados = supabase.table("solicitudes_adopcion").select("*").eq(
-            "estado", "Rechazado"
-        ).is_(
-            "email_respuesta_enviado", "null"
-        ).lte(
-            "fecha_rechazado", hace_2h
-        ).execute()
-        
-        for solicitud in rechazados.data:
-            try:
-                html = generar_email_respuesta(
-                    solicitud.get('nombre_apellido', 'Solicitante'),
-                    'rechazar',
-                    solicitud.get('nombre_peludo', 'el peludo')
-                )
-                enviar_email_gmail(
-                    solicitud['email'],
-                    "Sobre tu solicitud de adopción",
-                    html
-                )
-                # Marcar como enviado
-                supabase.table("solicitudes_adopcion").update({
-                    "email_respuesta_enviado": True
-                }).eq("id", solicitud['id']).execute()
-                
-                enviados["rechazados"] += 1
-            except Exception as e:
-                print(f"Error enviando email rechazado {solicitud['id']}: {e}")
-        
-        # 3. Buscar PENDIENTES (sin fecha de aceptado ni rechazado)
-        pendientes = supabase.table("solicitudes_adopcion").select("*").eq(
-            "estado", "Pendiente"
-        ).is_(
-            "fecha_aceptado", "null"
-        ).is_(
-            "fecha_rechazado", "null"
-        ).execute()
-        
-        if pendientes.data and len(pendientes.data) > 0:
-            try:
-                html_resumen = generar_email_resumen_pendientes(pendientes.data)
-                enviar_email_gmail(
-                    EMAIL_DESTINO,
-                    f"⏳ {len(pendientes.data)} Solicitud(es) Pendiente(s)",
-                    html_resumen
-                )
-                enviados["pendientes"] = len(pendientes.data)
-            except Exception as e:
-                print(f"Error enviando resumen pendientes: {e}")
-        
-        return {
-            "success": True,
-            "enviados": enviados,
-            "timestamp": ahora.isoformat()
-        }
-        
-    except Exception as e:
-        print(f"Error en cron: {str(e)}")
-        return {"success": False, "error": str(e)}
+    # 1. Buscar ACEPTADOS con >24h sin email enviado
+    cur.execute("""
+        SELECT * FROM solicitudes_adopcion 
+        WHERE estado = 'Aceptado' 
+        AND email_respuesta_enviado IS NULL 
+        AND fecha_aceptado <= %s
+    """, (hace_24h,))
+    aceptados = cur.fetchall()
+    
+    for solicitud in aceptados:
+        html = generar_email_respuesta(
+            solicitud.get('nombre_apellido', 'Solicitante'),
+            'aceptar',
+            solicitud.get('nombre_peludo', 'el peludo')
+        )
+        enviar_email_gmail(
+            solicitud['email'],
+            "✅ Solicitud Aceptada",
+            html
+        )
+        cur.execute("""
+            UPDATE solicitudes_adopcion 
+            SET email_respuesta_enviado = TRUE 
+            WHERE id = %s
+        """, (solicitud['id'],))
+        conn.commit()
+        enviados["aceptados"] += 1
+    
+    # 2. Buscar RECHAZADOS con >2h sin email enviado
+    cur.execute("""
+        SELECT * FROM solicitudes_adopcion 
+        WHERE estado = 'Rechazado' 
+        AND email_respuesta_enviado IS NULL 
+        AND fecha_rechazado <= %s
+    """, (hace_2h,))
+    rechazados = cur.fetchall()
+    
+    for solicitud in rechazados:
+        html = generar_email_respuesta(
+            solicitud.get('nombre_apellido', 'Solicitante'),
+            'rechazar',
+            solicitud.get('nombre_peludo', 'el peludo')
+        )
+        enviar_email_gmail(
+            solicitud['email'],
+            "Sobre tu solicitud de adopción",
+            html
+        )
+        cur.execute("""
+            UPDATE solicitudes_adopcion 
+            SET email_respuesta_enviado = TRUE 
+            WHERE id = %s
+        """, (solicitud['id'],))
+        conn.commit()
+        enviados["rechazados"] += 1
+    
+    # 3. Buscar PENDIENTES
+    cur.execute("""
+        SELECT * FROM solicitudes_adopcion 
+        WHERE estado = 'Pendiente' 
+        AND fecha_aceptado IS NULL 
+        AND fecha_rechazado IS NULL
+    """)
+    pendientes = cur.fetchall()
+    
+    if pendientes:
+        html_resumen = generar_email_resumen_pendientes(pendientes)
+        enviar_email_gmail(
+            EMAIL_DESTINO,
+            f"⏳ {len(pendientes)} Solicitud(es) Pendiente(s)",
+            html_resumen
+        )
+        enviados["pendientes"] = len(pendientes)
+    
+    cur.close()
+    conn.close()
+    
+    return {
+        "success": True,
+        "enviados": enviados,
+        "timestamp": ahora.isoformat()
+    }
 
 
 @app.get("/")
