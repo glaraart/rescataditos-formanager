@@ -119,63 +119,44 @@ def generar_html_email(solicitud_id: str, datos: Dict[str, Any]) -> str:
     <html>
       <head>
         <style>
-          body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; }}
-          .container {{ max-width: 800px; margin: 20px auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+          body {{ font-family: Arial, sans-serif; line-height: 1.5; color: #333; background: #f5f5f5; }}
+          .container {{ max-width: 700px; margin: 20px auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
           .header {{ 
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white; 
-            padding: 30px; 
+            padding: 25px; 
             text-align: center; 
           }}
           .badge {{ 
             display: inline-block;
             background: rgba(255,255,255,0.2);
             color: white;
-            padding: 8px 15px;
+            padding: 6px 12px;
             border-radius: 5px;
-            font-size: 14px;
+            font-size: 13px;
             font-family: monospace;
-            margin-top: 10px;
+            margin-top: 8px;
           }}
-          .content {{ padding: 30px; }}
-          .section {{ margin-bottom: 30px; }}
-          .section-title {{ 
-            font-size: 18px;
-            font-weight: bold;
-            color: #667eea;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #667eea;
-          }}
-          .field {{ 
-            margin: 12px 0; 
-            padding: 12px; 
-            background: #f9f9f9; 
-            border-left: 3px solid #667eea;
-            border-radius: 3px; 
-          }}
-          .field-label {{ font-weight: bold; color: #555; display: block; margin-bottom: 5px; }}
-          .field-value {{ color: #333; }}
-          .buttons {{ 
-            text-align: center; 
-            padding: 30px; 
-            background: #f9f9f9; 
-            border-top: 2px solid #eee;
-          }}
+          .content {{ padding: 25px; }}
+          .section {{ margin-bottom: 20px; padding: 15px; background: #f9f9f9; border-left: 3px solid #667eea; border-radius: 5px; }}
+          .section-title {{ font-size: 16px; font-weight: bold; color: #667eea; margin-bottom: 10px; }}
+          .info-line {{ margin: 6px 0; font-size: 14px; }}
+          .info-line strong {{ color: #555; }}
+          .peludo {{ font-size: 16px; font-weight: bold; color: #667eea; background: #fff; padding: 10px; border-radius: 5px; margin-top: 5px; }}
+          .buttons {{ text-align: center; padding: 20px; background: #f9f9f9; border-top: 2px solid #eee; }}
           .button {{ 
             display: inline-block; 
-            padding: 15px 35px; 
-            margin: 10px 5px; 
+            padding: 12px 30px; 
+            margin: 5px; 
             text-decoration: none; 
             border-radius: 8px; 
             font-weight: bold;
             color: white;
-            font-size: 16px;
+            font-size: 15px;
           }}
-          .btn-visto {{ background-color: #fbbc04; }}
           .btn-aceptar {{ background-color: #34a853; }}
           .btn-rechazar {{ background-color: #ea4335; }}
-          .footer {{ text-align: center; padding: 20px; color: #777; font-size: 12px; background: #f5f5f5; }}
+          .footer {{ text-align: center; padding: 15px; color: #777; font-size: 11px; background: #f5f5f5; }}
         </style>
       </head>
       <body>
@@ -189,144 +170,60 @@ def generar_html_email(solicitud_id: str, datos: Dict[str, Any]) -> str:
             <!-- Datos Personales -->
             <div class="section">
               <div class="section-title">👤 Datos Personales</div>
-              <div class="field">
-                <span class="field-label">Nombre y Apellido:</span>
-                <span class="field-value">{get_value("Nombre y Apellido")}</span>
-              </div>
-              <div class="field">
-                <span class="field-label">Edad:</span>
-                <span class="field-value">{get_value("Edad")}</span>
-              </div>
-              <div class="field">
-                <span class="field-label">Ocupación:</span>
-                <span class="field-value">{get_value("Ocupación")}</span>
-              </div>
-              <div class="field">
-                <span class="field-label">Email:</span>
-                <span class="field-value">{get_value("Email")}</span>
-              </div>
-              <div class="field">
-                <span class="field-label">Instagram:</span>
-                <span class="field-value">{get_value("Instagram")}</span>
-              </div>
-              <div class="field">
-                <span class="field-label">Celular:</span>
-                <span class="field-value">{get_value("Celular de contacto")}</span>
-              </div>
-              <div class="field">
-                <span class="field-label">Zona:</span>
-                <span class="field-value">{get_value("Zona normalizada")}</span>
-              </div>
+              <div class="info-line"><strong>Nombre:</strong> {get_value("Nombre y Apellido")}</div>
+              <div class="info-line"><strong>Edad:</strong> {get_value("Edad")} • <strong>Ocupación:</strong> {get_value("Ocupación")}</div>
+              <div class="info-line"><strong>Email:</strong> {get_value("Email")}</div>
+              <div class="info-line"><strong>Celular:</strong> {get_value("Celular de contacto")} • <strong>Instagram:</strong> {get_value("Instagram")}</div>
+              <div class="info-line"><strong>Zona:</strong> {get_value("Zona normalizada")}</div>
             </div>
 
             <!-- Vivienda -->
             <div class="section">
-              <div class="section-title">🏠 Información de Vivienda</div>
-              <div class="field">
-                <span class="field-label">Tipo de vivienda:</span>
-                <span class="field-value">{get_value("¿Vivís en casa o departamento?")}</span>
-              </div>
-              <div class="field">
-                <span class="field-label">Tenencia:</span>
-                <span class="field-value">{get_value("Tipo de tenencia de la vivienda")}</span>
-              </div>
-              <div class="field">
-                <span class="field-label">¿Consultaste con los dueños?:</span>
-                <span class="field-value">{get_value("En caso de que sea alquilada, prestada o compartida: ¿consultaste previamente con los dueños?")}</span>
-              </div>
-              <div class="field">
-                <span class="field-label">¿Tenes cerramientos?:</span>
-                <span class="field-value">{get_value("¿Tenes cerramientos/protecciones en ventanas/balcón/patio/terraza?")}</span>
-              </div>
-              <div class="field">
-                <span class="field-label">Cerramientos (fotos/video):</span>
-                <span class="field-value">{get_value("En este espacio cargue las fotos o un video de los cerramientos. No mas de 100MB")}</span>
-              </div>
-              <div class="field">
-                <span class="field-label">Si no tiene cerramientos:</span>
-                <span class="field-value">{get_value("En caso de no tener, comentanos si estás dispuesto a ponerlos y cuándo, sino no podremos considerar su solicitud de adopción.")}</span>
-              </div>
+              <div class="section-title">🏠 Vivienda</div>
+              <div class="info-line"><strong>Tipo:</strong> {get_value("¿Vivís en casa o departamento?")} • <strong>Tenencia:</strong> {get_value("Tipo de tenencia de la vivienda")}</div>
+              <div class="info-line"><strong>Consultó dueños:</strong> {get_value("En caso de que sea alquilada, prestada o compartida: ¿consultaste previamente con los dueños?")}</div>
+              <div class="info-line"><strong>Cerramientos:</strong> {get_value("¿Tenes cerramientos/protecciones en ventanas/balcón/patio/terraza?")}</div>
+              <div class="info-line"><strong>Fotos/Video:</strong> {get_value("En este espacio cargue las fotos o un video de los cerramientos. No mas de 100MB")}</div>
+              <div class="info-line"><strong>Si no tiene:</strong> {get_value("En caso de no tener, comentanos si estás dispuesto a ponerlos y cuándo, sino no podremos considerar su solicitud de adopción.")}</div>
             </div>
 
             <!-- Experiencia con animales -->
             <div class="section">
-              <div class="section-title">🐕 Experiencia con Animales</div>
-              <div class="field">
-                <span class="field-label">¿Tenes otros animales?:</span>
-                <span class="field-value">{get_value("¿Tenes otros animales?")}</span>
-              </div>
-              <div class="field">
-                <span class="field-label">Detalles de tus animales:</span>
-                <span class="field-value">{get_value("Contanos un poco más acerca de si son gatos o perros, cuantos y que edades tienen!")}</span>
-              </div>
-              <div class="field">
-                <span class="field-label">¿Están vacunados/castrados?:</span>
-                <span class="field-value">{get_value("¿Están vacunados y/o castrados?")}</span>
-              </div>
-              <div class="field">
-                <span class="field-label">Si no están vacunados/castrados:</span>
-                <span class="field-value">{get_value("En caso de no estar vacunados y/o castrados, contanos los motivos que te llevaron a esa decisión.")}</span>
-              </div>
-              <div class="field">
-                <span class="field-label">¿Tuviste animales previamente?:</span>
-                <span class="field-value">{get_value("¿Tuviste animales previamente?")}</span>
-              </div>
-              <div class="field">
-                <span class="field-label">Qué ocurrió con ellos:</span>
-                <span class="field-value">{get_value("Contanos que ocurrió con ellos")}</span>
-              </div>
-              <div class="field">
-                <span class="field-label">Alimentación actual:</span>
-                <span class="field-value">{get_value("¿Qué alimentación le/s das? (Detalle marca si es alimento balanceado)")}</span>
-              </div>
-              <div class="field">
-                <span class="field-label">Alimento que usabas:</span>
-                <span class="field-value">{get_value("¿Qué alimento le/s dabas?")}</span>
-              </div>
+              <div class="section-title">🐕 Experiencia</div>
+              <div class="info-line"><strong>Tiene otros animales:</strong> {get_value("¿Tenes otros animales?")}</div>
+              <div class="info-line"><strong>Detalles:</strong> {get_value("Contanos un poco más acerca de si son gatos o perros, cuantos y que edades tienen!")}</div>
+              <div class="info-line"><strong>Vacunados/Castrados:</strong> {get_value("¿Están vacunados y/o castrados?")}</div>
+              <div class="info-line"><strong>Motivos si no:</strong> {get_value("En caso de no estar vacunados y/o castrados, contanos los motivos que te llevaron a esa decisión.")}</div>
+              <div class="info-line"><strong>Tuvo antes:</strong> {get_value("¿Tuviste animales previamente?")}</div>
+              <div class="info-line"><strong>Qué pasó:</strong> {get_value("Contanos que ocurrió con ellos")}</div>
+              <div class="info-line"><strong>Alimentación actual:</strong> {get_value("¿Qué alimentación le/s das? (Detalle marca si es alimento balanceado)")}</div>
+              <div class="info-line"><strong>Alimentación previa:</strong> {get_value("¿Qué alimento le/s dabas?")}</div>
             </div>
 
-            <!-- Situaciones especiales -->
+            <!-- Otros -->
             <div class="section">
               <div class="section-title">🌟 Otros Datos</div>
-              <div class="field">
-                <span class="field-label">¿Hay niños? Edades:</span>
-                <span class="field-value">{get_value("¿Hay niños pequeños en el domicilio? Aclarar sus edades.")}</span>
-              </div>
-              <div class="field">
-                <span class="field-label">Tiempo solo en el día:</span>
-                <span class="field-value">{get_value("¿Cuánto tiempo estaría solo el peludo en su vida cotidiana?")}</span>
-              </div>
-              <div class="field">
-                <span class="field-label">¿Qué harías en vacaciones?:</span>
-                <span class="field-value">{get_value("¿Qué harías con el peludo en caso de vacaciones?")}</span>
-              </div>
-              <div class="field">
-                <span class="field-label">¿Qué harías en caso de mudanza?:</span>
-                <span class="field-value">{get_value("¿Qué harías con el peludo en caso de mudanza?")}</span>
-              </div>
+              <div class="info-line"><strong>Niños (edades):</strong> {get_value("¿Hay niños pequeños en el domicilio? Aclarar sus edades.")}</div>
+              <div class="info-line"><strong>Tiempo solo:</strong> {get_value("¿Cuánto tiempo estaría solo el peludo en su vida cotidiana?")}</div>
+              <div class="info-line"><strong>En vacaciones:</strong> {get_value("¿Qué harías con el peludo en caso de vacaciones?")}</div>
+              <div class="info-line"><strong>En mudanza:</strong> {get_value("¿Qué harías con el peludo en caso de mudanza?")}</div>
             </div>
 
-            <!-- Peludo de interés -->
+            <!-- Peludo -->
             <div class="section">
               <div class="section-title">❤️ Peludo de Interés</div>
-              <div class="field">
-                <span class="field-label">Nombre/Descripción:</span>
-                <span class="field-value" style="font-size: 16px; font-weight: bold; color: #667eea;">
-                  {get_value("Nombre del peludo en el que estas interesado/a.En caso de que no tenga un nombre asignado por nosotras, describir su aspecto.")}
-                </span>
-              </div>
+              <div class="peludo">{get_value("Nombre del peludo en el que estas interesado/a.En caso de que no tenga un nombre asignado por nosotras, describir su aspecto.")}</div>
             </div>
           </div>
           
           <div class="buttons">
-            <h3>⚡ Acciones Rápidas</h3>
-            <a href="{url_aceptar}" class="button btn-aceptar">✅ Aceptar Solicitud</a>
-            <a href="{url_rechazar}" class="button btn-rechazar">❌ Rechazar Solicitud</a>
+            <h3 style="margin: 0 0 15px 0; font-size: 16px;">⚡ Acciones Rápidas</h3>
+            <a href="{url_aceptar}" class="button btn-aceptar">✅ Aceptar</a>
+            <a href="{url_rechazar}" class="button btn-rechazar">❌ Rechazar</a>
           </div>
           
           <div class="footer">
             <p>💾 Sistema automático de gestión de adopciones</p>
-            <p>Supabase PostgreSQL + Cloud Run + Resend</p>
           </div>
         </div>
       </body>
@@ -454,9 +351,10 @@ def generar_email_resumen_pendientes(solicitudes: list) -> str:
                 <span class="badge-pendiente">Pendiente</span>
             </div>
             <div class="solicitud-info">
-                <p><strong>Email:</strong> {sol.get('email', 'N/A')}</p>
-                <p><strong>Peludo:</strong> {sol.get('nombre_peludo', 'N/A')}</p>
-                <p><strong>Zona:</strong> {sol.get('zona', 'N/A')}</p>
+                <p><strong>👤 Datos Personales:</strong> {sol.get('edad', 'N/A')} años • {sol.get('ocupacion', 'N/A')} • {sol.get('zona', 'N/A')}</p>
+                <p><strong>📧 Contacto:</strong> {sol.get('email', 'N/A')} • {sol.get('celular', 'N/A')} • {sol.get('instagram', 'N/A')}</p>
+                <p><strong>🏠 Vivienda:</strong> {sol.get('tipo_vivienda', 'N/A')} ({sol.get('tenencia_vivienda', 'N/A')})</p>
+                <p><strong>🐾 Peludo:</strong> {sol.get('nombre_peludo', 'N/A')}</p>
                 <p><strong>ID:</strong> <code>{sol['id']}</code></p>
             </div>
             <div class="solicitud-actions">
