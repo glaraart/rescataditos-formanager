@@ -56,7 +56,7 @@ def enviar_email_gmail(destinatario: str, asunto: str, html_body: str):
     try:
         # Crear mensaje MIME
         message = MIMEMultipart('alternative')
-        message['From'] = GMAIL_USER
+        message['From'] = f"101 Rescataditos <{GMAIL_USER}>"
         message['To'] = destinatario
         message['Subject'] = asunto
         
