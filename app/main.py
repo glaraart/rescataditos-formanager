@@ -17,15 +17,24 @@ from email.mime.multipart import MIMEMultipart
 app = FastAPI()
 
 # Configuración desde variables de entorno
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-GMAIL_USER = os.getenv("GMAIL_USER")  # Tu email completo: ejemplo@gmail.com
-GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")  # Contraseña de aplicación de 16 caracteres
-EMAIL_DESTINO = os.getenv("EMAIL_DESTINO")
-CLOUD_RUN_URL = os.getenv("CLOUD_RUN_URL")  # Tu propia URL para los botones
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+GMAIL_USER = os.getenv("GMAIL_USER", "")  # Tu email completo: ejemplo@gmail.com
+GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")  # Contraseña de aplicación de 16 caracteres
+EMAIL_DESTINO = os.getenv("EMAIL_DESTINO", "")
+CLOUD_RUN_URL = os.getenv("CLOUD_RUN_URL", "")  # Tu propia URL para los botones
 
 # Inicializar clientes
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+try:
+    if SUPABASE_URL and SUPABASE_KEY:
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        print("✅ Supabase client initialized")
+    else:
+        supabase = None
+        print("⚠️ WARNING: Supabase credentials not configured")
+except Exception as e:
+    supabase = None
+    print(f"⚠️ Error initializing Supabase: {e}")
 
 # Estados
 ESTADOS = {
@@ -324,6 +333,9 @@ def generar_html_email(solicitud_id: str, datos: Dict[str, Any]) -> str:
 async def handle_form_submission(request: Request):
     """Recibe los datos del formulario desde Apps Script"""
     try:
+        if not supabase:
+            return {"success": False, "error": "Database not configured"}
+        
         data = await request.json()
         timestamp = data.get("timestamp")
         datos_formulario = data.get("datos", {})
@@ -493,6 +505,9 @@ def generar_email_resumen_pendientes(solicitudes: list) -> str:
 async def handle_button_action(action: str, id: str):
     """Maneja los clics en los botones del email - SOLO registra fecha"""
     
+    if not supabase:
+        return HTMLResponse("<h2>❌ Database not configured</h2>")
+    
     estados_map = {
         "aceptar": ("Aceptado", "ACEPTADA", "#34a853", "✅", "fecha_aceptado"),
         "rechazar": ("Rechazado", "RECHAZADA", "#ea4335", "❌", "fecha_rechazado")
@@ -578,6 +593,9 @@ async def enviar_notificaciones():
     3. Envía resumen de pendientes al equipo
     """
     try:
+        if not supabase:
+            return {"success": False, "error": "Database not configured"}
+        
         from datetime import timedelta
         
         ahora = datetime.now()
