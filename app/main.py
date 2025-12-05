@@ -20,8 +20,8 @@ app = FastAPI()
 
 # Configuración de base de datos
 DB_HOST = os.getenv("DB_HOST")
-DB_PORT = os.getenv("DB_PORT", "5432")
-DB_NAME = os.getenv("DB_NAME", "postgres")
+DB_PORT = os.getenv("DB_PORT")
+DB_NAME = os.getenv("DB_NAME")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 
@@ -609,11 +609,11 @@ async def enviar_notificaciones():
     2. Envía emails a solicitantes rechazados (>2h)
     3. Envía resumen de pendientes al equipo
     """
-    from datetime import timedelta
+    from datetime import timedelta, timezone
     
-    ahora = datetime.now()
-    hace_24h = (ahora - timedelta(hours=24)).isoformat()
-    hace_2h = (ahora - timedelta(hours=2)).isoformat()
+    ahora = datetime.now(timezone.utc)
+    hace_24h = ahora - timedelta(hours=24)
+    hace_2h = ahora - timedelta(hours=2)
     
     enviados = {"aceptados": 0, "rechazados": 0, "pendientes": 0}
     
@@ -624,7 +624,7 @@ async def enviar_notificaciones():
     cur.execute("""
         SELECT * FROM solicitudes_adopcion 
         WHERE estado = 'Aceptado' 
-        AND email_respuesta_enviado IS NULL 
+        AND (email_respuesta_enviado IS NULL OR email_respuesta_enviado = FALSE)
         AND fecha_aceptado <= %s
     """, (hace_24h,))
     aceptados = cur.fetchall()
@@ -652,7 +652,7 @@ async def enviar_notificaciones():
     cur.execute("""
         SELECT * FROM solicitudes_adopcion 
         WHERE estado = 'Rechazado' 
-        AND email_respuesta_enviado IS NULL 
+        AND (email_respuesta_enviado IS NULL OR email_respuesta_enviado = FALSE)
         AND fecha_rechazado <= %s
     """, (hace_2h,))
     rechazados = cur.fetchall()
