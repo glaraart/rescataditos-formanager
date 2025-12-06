@@ -5,7 +5,7 @@ FastAPI + PostgreSQL (Supabase) + Gmail SMTP
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import os
 import uuid
 from typing import Dict, Any
@@ -88,6 +88,8 @@ def extraer_campos_db(datos: Dict[str, Any]) -> Dict[str, Any]:
     def get_value(key: str) -> str:
         return datos.get(key, [""])[0] if isinstance(datos.get(key), list) else datos.get(key, "")
     
+    zona_value = get_value("¿Vivís en CABA? ¿En qué zona estas?")
+    
     return {
         "nombre_apellido": get_value("Nombre y Apellido"),
         "edad": get_value("Edad"),
@@ -95,7 +97,7 @@ def extraer_campos_db(datos: Dict[str, Any]) -> Dict[str, Any]:
         "email": get_value("Email"),
         "instagram": get_value("Instagram"),
         "celular": get_value("Celular de contacto"),
-        "zona": get_value("Zona normalizada"),
+        "zona": zona_value.upper() if zona_value else "",
         "tipo_vivienda": get_value("¿Vivís en casa o departamento?"),
         "tenencia_vivienda": get_value("Tipo de tenencia de la vivienda"),
         "cerramientos_url": get_value("En este espacio cargue las fotos o un video de los cerramientos. No mas de 100MB"),
@@ -105,6 +107,32 @@ def extraer_campos_db(datos: Dict[str, Any]) -> Dict[str, Any]:
 
 def generar_html_email(solicitud_id: str, datos: Dict[str, Any]) -> str:
     """Genera el HTML del email con todos los campos del formulario"""
+    
+    # Helper para convertir URLs de Google Drive a imágenes directas
+    def drive_url_to_image(url: str) -> str:
+        """Extrae el ID de Google Drive y retorna URL de imagen directa"""
+        if not url or url == 'N/A':
+            return ''
+        
+        import re
+        # Extraer ID de diferentes formatos de URL de Google Drive
+        patterns = [
+            r'/file/d/([a-zA-Z0-9_-]+)',
+            r'id=([a-zA-Z0-9_-]+)',
+            r'/open\?id=([a-zA-Z0-9_-]+)',
+            r'^([a-zA-Z0-9_-]{25,})$'  # Solo el ID
+        ]
+        
+        file_id = None
+        for pattern in patterns:
+            match = re.search(pattern, url)
+            if match:
+                file_id = match.group(1)
+                break
+        
+        if file_id:
+            return f'https://lh3.googleusercontent.com/d/{file_id}'
+        return url
     
     # Helper para obtener valores
     def get_value(key: str) -> str:
@@ -183,7 +211,7 @@ def generar_html_email(solicitud_id: str, datos: Dict[str, Any]) -> str:
               <div class="info-line"><strong>Tipo:</strong> {get_value("¿Vivís en casa o departamento?")} • <strong>Tenencia:</strong> {get_value("Tipo de tenencia de la vivienda")}</div>
               <div class="info-line"><strong>Consultó dueños:</strong> {get_value("En caso de que sea alquilada, prestada o compartida: ¿consultaste previamente con los dueños?")}</div>
               <div class="info-line"><strong>Cerramientos:</strong> {get_value("¿Tenes cerramientos/protecciones en ventanas/balcón/patio/terraza?")}</div>
-              <div class="info-line"><strong>Fotos/Video:</strong> {get_value("En este espacio cargue las fotos o un video de los cerramientos. No mas de 100MB")}</div>
+              {f'<div class="info-line"><strong>Fotos/Video:</strong><br><img src="{drive_url_to_image(get_value("En este espacio cargue las fotos o un video de los cerramientos. No mas de 100MB"))}" style="max-width: 100%; height: auto; margin-top: 10px; border-radius: 8px;"></div>' if get_value("En este espacio cargue las fotos o un video de los cerramientos. No mas de 100MB") != 'N/A' else '<div class="info-line"><strong>Fotos/Video:</strong> No cargadas</div>'}
               <div class="info-line"><strong>Si no tiene:</strong> {get_value("En caso de no tener, comentanos si estás dispuesto a ponerlos y cuándo, sino no podremos considerar su solicitud de adopción.")}</div>
             </div>
 
@@ -239,7 +267,9 @@ async def handle_form_submission(request: Request):
     datos_formulario = await request.json()
     
     # El timestamp viene dentro de los datos del formulario
-    timestamp = datos_formulario.get("Timestamp", datetime.now().isoformat())
+    # Si no hay timestamp, usar hora de Buenos Aires (UTC-3)
+    tz_bsas = timezone(timedelta(hours=-3))
+    timestamp = datos_formulario.get("Timestamp", datetime.now(tz_bsas).isoformat())
     
     # Generar ID único
     solicitud_id = generar_id()
@@ -436,7 +466,9 @@ async def handle_button_action(action: str, id: str):
     nuevo_estado, mensaje, color, emoji, campo_fecha = estados_map[action]
     
     # Actualizar en PostgreSQL
-    now = datetime.now().isoformat()
+    # Hora de Buenos Aires (UTC-3)
+    tz_bsas = timezone(timedelta(hours=-3))
+    now = datetime.now(tz_bsas)
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute(f"""
@@ -511,21 +543,21 @@ async def enviar_notificaciones():
     from datetime import timedelta, timezone
     
     ahora = datetime.now(timezone.utc)
-    hace_24h = ahora - timedelta(hours=24)
-    hace_2h = ahora - timedelta(hours=2)
+    hace_48h = ahora - timedelta(hours=48)
+    hace_72h = ahora - timedelta(hours=72)
     
     enviados = {"aceptados": 0, "rechazados": 0, "pendientes": 0}
     
     conn = get_db_connection()
     cur = conn.cursor()
         
-    # 1. Buscar ACEPTADOS con >24h sin email enviado
+    # 1. Buscar ACEPTADOS con >48h desde solicitud sin email enviado
     cur.execute("""
         SELECT * FROM solicitudes_adopcion 
         WHERE estado = 'Aceptado' 
         AND (email_respuesta_enviado IS NULL OR email_respuesta_enviado = FALSE)
-        AND fecha_aceptado <= %s
-    """, (hace_24h,))
+        AND fecha_solicitud <= %s
+    """, (hace_48h,))
     aceptados = cur.fetchall()
     
     for solicitud in aceptados:
@@ -547,13 +579,13 @@ async def enviar_notificaciones():
         conn.commit()
         enviados["aceptados"] += 1
     
-    # 2. Buscar RECHAZADOS con >2h sin email enviado
+    # 2. Buscar RECHAZADOS con >72h desde solicitud sin email enviado
     cur.execute("""
         SELECT * FROM solicitudes_adopcion 
         WHERE estado = 'Rechazado' 
         AND (email_respuesta_enviado IS NULL OR email_respuesta_enviado = FALSE)
-        AND fecha_rechazado <= %s
-    """, (hace_2h,))
+        AND fecha_solicitud <= %s
+    """, (hace_72h,))
     rechazados = cur.fetchall()
     
     for solicitud in rechazados:
