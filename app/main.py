@@ -325,9 +325,10 @@ def generar_email_respuesta(nombre: str, accion: str, nombre_peludo: str) -> str
             <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
               <h2 style="color: #ea4335;">Sobre tu solicitud de adopción</h2>
               <p>Hola {nombre},</p>
-              <p>Lamentablemente, en este momento no podemos continuar con tu solicitud de adopción para <strong>{nombre_peludo}</strong>.</p>
-              <p>Esto puede deberse a diversos factores relacionados con las necesidades específicas del animal o las condiciones de adopción.</p>
-              <p>Te invitamos a seguir revisando nuestros rescataditos disponibles. ¡Seguro hay uno perfecto para ti! 🐾</p>
+              <p>Queríamos agradecerte mucho por tu interés en <strong>{nombre_peludo}</strong> y por tomarte el tiempo de completar el formulario.</p>
+              <p>Hemos recibido muchas solicitudes y, tras revisarlas cuidadosamente, hemos decidido avanzar con una familia cuyo entorno y rutina se ajustan un poco más a las necesidades específicas que tiene <strong>{nombre_peludo}</strong> en este momento.</p>
+              <p>Te animamos a seguir buscando, ya que hay muchos animales esperando una oportunidad.</p>
+              <p><strong>¡Gracias por querer adoptar! 🐾</strong></p>
               <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
               <p style="color: #999; font-size: 12px;">Este es un mensaje automático del sistema de adopciones.</p>
             </div>
