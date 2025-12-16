@@ -202,7 +202,7 @@ def generar_html_email(solicitud_id: str, datos: Dict[str, Any]) -> str:
               <div class="info-line"><strong>Edad:</strong> {get_value("Edad")} • <strong>Ocupación:</strong> {get_value("Ocupación")}</div>
               <div class="info-line"><strong>Email:</strong> {get_value("Email")}</div>
               <div class="info-line"><strong>Celular:</strong> {get_value("Celular de contacto")} • <strong>Instagram:</strong> {get_value("Instagram")}</div>
-              <div class="info-line"><strong>Zona:</strong> {get_value("Zona normalizada")}</div>
+              <div class="info-line"><strong>Zona:</strong> {get_value("¿Vivís en CABA? ¿En qué zona estas?")}</div> 
             </div>
 
             <!-- Vivienda -->
